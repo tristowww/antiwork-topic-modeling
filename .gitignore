@@ -1,0 +1,14 @@
+# Local data and model artifacts
+data/
+/Post Content.csv
+.venv/
+__pycache__/
+*.pyc
+
+# Generated analysis is retained locally; only selected public evidence files are force-added.
+outputs/
+*.egg-info/
+
+# Office and render intermediates
+~$*.docx
+deliverables/_rendered/

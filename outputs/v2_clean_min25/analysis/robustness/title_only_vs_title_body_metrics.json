@@ -1,0 +1,10 @@
+{
+  "seed": 29,
+  "shared_documents": 10000,
+  "title_body_assigned_rate": 0.4324,
+  "title_only_assigned_rate": 0.6182,
+  "inlier_membership_jaccard": 0.411907001747077,
+  "ari_all_documents": 0.09849308501224882,
+  "ari_joint_inliers": 0.4192558640374881,
+  "joint_inlier_documents": 3065
+}

@@ -1,0 +1,61 @@
+{
+  "sample_documents": 10000,
+  "documents_per_window": 2500,
+  "sample_seed": 29,
+  "clustering_seeds": [
+    11,
+    29,
+    47
+  ],
+  "min_cluster_size": 25,
+  "embedding_model": "all-MiniLM-L6-v2",
+  "runs": [
+    {
+      "seed": 11,
+      "documents": 10000,
+      "non_outlier_topics": 37,
+      "assigned_rate": 0.433,
+      "outlier_rate": 0.567
+    },
+    {
+      "seed": 29,
+      "documents": 10000,
+      "non_outlier_topics": 39,
+      "assigned_rate": 0.4324,
+      "outlier_rate": 0.5676
+    },
+    {
+      "seed": 47,
+      "documents": 10000,
+      "non_outlier_topics": 41,
+      "assigned_rate": 0.4062,
+      "outlier_rate": 0.5938
+    }
+  ],
+  "pairwise": [
+    {
+      "seed_a": 11,
+      "seed_b": 29,
+      "inlier_membership_jaccard": 0.7740877408774087,
+      "ari_all_documents": 0.7207298890154406,
+      "ari_joint_inliers": 0.909990752127371,
+      "joint_inlier_documents": 3776
+    },
+    {
+      "seed_a": 11,
+      "seed_b": 47,
+      "inlier_membership_jaccard": 0.8055077452667814,
+      "ari_all_documents": 0.770007512723432,
+      "ari_joint_inliers": 0.9664651314625187,
+      "joint_inlier_documents": 3744
+    },
+    {
+      "seed_a": 29,
+      "seed_b": 47,
+      "inlier_membership_jaccard": 0.7718149165434186,
+      "ari_all_documents": 0.7255560599614298,
+      "ari_joint_inliers": 0.9000371863711767,
+      "joint_inlier_documents": 3653
+    }
+  ]
+}

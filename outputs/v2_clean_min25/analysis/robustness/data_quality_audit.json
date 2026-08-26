@@ -1,0 +1,18 @@
+{
+  "filtered_posts": 97254,
+  "preprocessed_posts": 97254,
+  "unique_ids": 97254,
+  "exact_duplicate_normalized_text_rows": 1631,
+  "exact_duplicate_normalized_text_groups": 591,
+  "exact_duplicate_nonplaceholder_rows": 1127,
+  "exact_duplicate_nonplaceholder_groups": 385,
+  "empty_title_rows": 0,
+  "empty_body_rows": 8798,
+  "deleted_or_removed_field_rows": 11214,
+  "filter_match_rate": 1.0,
+  "min_monthly_posts": 255,
+  "max_monthly_posts": 6998,
+  "median_title_characters": 50.0,
+  "median_body_characters": 885.0,
+  "p95_body_characters": 3848.0
+}

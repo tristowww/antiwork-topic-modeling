@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "antiwork-topic-modeling"
+version = "0.1.0"
+description = "Modernized + longitudinal replication of the Mitropoulos & Minton (SIOP 2023) r/antiwork topic-modeling study, extended through Feb 2025."
+readme = "planning/PROJECT.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Mitropoulos" },
+    { name = "Ristow" },
+]
+
+dependencies = [
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+    "numpy>=1.24",
+    "requests>=2.31",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+nlp = [
+    "spacy>=3.7",
+    "sentence-transformers>=2.7",
+    "bertopic>=0.16",
+    "umap-learn>=0.5",
+    "hdbscan>=0.8",
+    "scikit-learn>=1.4",
+]
+
+viz = [
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+]
+
+docs = [
+    "python-docx>=1.1",
+]
+
+dev = [
+    "jupyter>=1.0",
+    "jupyterlab>=4.0",
+    "ipykernel>=6.29",
+]
+
+all = [
+    "antiwork-topic-modeling[nlp,viz,docs,dev]",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.setuptools.package-dir]
+"" = "."
