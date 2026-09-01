@@ -239,6 +239,8 @@ def build() -> None:
     heading(doc, "Selected findings")
     findings_table(doc)
     paragraph(doc, "All percentages use every filtered post in each rolling window as the denominator. They describe the mapped subset, not all potentially relevant content in the corpus.", size=8.5, color=MUTED, italic=True, after=4)
+    heading(doc, "Data collection", 2)
+    paragraph(doc, "Public r/antiwork submissions were retrieved through the Arctic Shift archive API in monthly UTC batches from 1 March 2021 through 1 March 2025. The analysis retained unique posts whose title or body matched the established management terms boss, manager, supervisor, or team lead, including plural variants. The resulting corpus is an archive-based sample of public discourse, not a representative sample of employees or an author-level panel.", size=9.1, after=0)
     doc.add_page_break()
 
     heading(doc, "Analytic workflow")
@@ -274,6 +276,9 @@ def build() -> None:
     robustness_table(doc)
     paragraph(doc, "A larger all-mpnet-base-v2 encoder check was attempted but did not complete within the available CPU bound, so it is deferred and not treated as evidence.", size=8.5, color=MUTED, italic=True)
 
+    heading(doc, "Interpreting the results", 2)
+    callout_pair(doc, "Observed patterns", "Within the mapped themes, health, safety, and attendance discussion declined over the four windows, while scheduling, hours, and time-off discussion increased. Compensation, career precarity, and recruitment remained visible throughout.", "What the results support", "These patterns describe changes in the composition of management-related public discussion. They identify domains for follow-up with representative employee data; they do not establish employee sentiment, turnover drivers, or policy effects.")
+
     heading(doc, "Remaining work")
     callout_pair(doc, "Available for drafting", "Results, figures, a theme codebook, coverage diagnostics, seed stability, text-mode sensitivity, and a defined interpretive scope are ready for the manuscript.", "Optional extensions", "Sentiment annotation, a larger codebook, saved-model refit, TopicGPT comparison, and the MPNet check are possible extensions, but are not required for this exploratory paper.")
     heading(doc, "Manuscript revision status", 2)
@@ -282,7 +287,7 @@ def build() -> None:
     paragraph(doc, "Draft in this order: method and sampling frame; coverage and descriptive results; limitations; then an exploratory discussion. Use the documented theme map and avoid causal, full-conversation, or sentiment claims.", size=9.4, after=4)
     p = paragraph(doc, "Reproducible code and shareable evidence: ", size=9.4, after=4)
     hyperlink(p, REPO_URL, REPO_URL)
-    paragraph(doc, "Core references: planning/WRITING_HANDOFF.md, planning/ROBUSTNESS.md, and planning/CANDIDATE_THEME_CODEBOOK.csv.", size=8.6, color=MUTED, after=3)
+    paragraph(doc, "Method records: planning/SCRAPING.md, planning/PREPROCESSING.md, planning/WRITING_HANDOFF.md, planning/ROBUSTNESS.md, and planning/CANDIDATE_THEME_CODEBOOK.csv.", size=8.4, color=MUTED, after=3)
     paragraph(doc, "Current status: the analysis package is complete and ready for drafting as a descriptive, exploratory topic-prevalence study.", size=9.4, color=NAVY, bold=True)
     doc.save(OUT_DOCX)
     print(OUT_DOCX)
