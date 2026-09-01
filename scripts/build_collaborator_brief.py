@@ -274,6 +274,8 @@ def build() -> None:
 
     heading(doc, "What is left")
     callout_pair(doc, "Ready now", "Results, figures, a theme codebook, coverage diagnostics, seed stability, text-mode sensitivity, and a bounded writing frame. The collaborator meeting can focus on interpretation and drafting.", "Defer unless claims broaden", "Sentiment annotation, a larger codebook, saved-model refit, TopicGPT comparison, and the MPNet check are useful extensions, not blockers for this exploratory paper.")
+    heading(doc, "Manuscript status", 2)
+    callout_pair(doc, "Draft updated", "A revised manuscript draft now includes the updated title and abstract; current-study framing and research question; Methods, Results, Discussion, implications, limitations; figures; and primary BERTopic references.", "Final editorial pass", "Before external circulation, harmonize retained Background language with the paper's exploratory, descriptive scope. Historical theory and prior turnover findings should remain context, not claims tested by this study.")
     heading(doc, "Writing handoff", 2)
     paragraph(doc, "Draft in this order: method and sampling frame; coverage and descriptive results; limitations; then an exploratory discussion. Use the documented theme map and avoid causal, full-conversation, or sentiment claims.", size=9.4, after=4)
     p = paragraph(doc, "Reproducible code and shareable evidence: ", size=9.4, after=4)

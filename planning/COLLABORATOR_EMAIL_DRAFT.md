@@ -20,7 +20,9 @@ For our meeting, I suggest we focus on the findings, the appropriate caveats,
 and the paper's Method, Results, and Discussion framing rather than additional
 analysis decisions. The attached concise analysis brief already includes the
 detailed analysis steps, condensed methods, results, figures, and robustness
-context. The reproducible code and shareable evidence are here: https://github.com/v-tristow_microsoft/antiwork-topic-modeling
+context. A revised manuscript draft is also included; its remaining work is a
+final editorial consistency pass on retained Background language. The
+reproducible code and shareable evidence are here: https://github.com/v-tristow_microsoft/antiwork-topic-modeling
 
 Best,
 [Your Name]
