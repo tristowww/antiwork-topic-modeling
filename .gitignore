@@ -12,3 +12,6 @@ outputs/
 # Office and render intermediates
 ~$*.docx
 deliverables/_rendered/
+deliverables/*_render/
+deliverables/manuscript_revision_work/
+deliverables/manuscript_revision_render*/

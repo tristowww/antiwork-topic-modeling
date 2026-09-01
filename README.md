@@ -9,6 +9,8 @@ March 2021 through February 2025.
   theme trends, cross-window alignment, and robustness checks.
 - The finalized exploratory theme codebook and collaborator-facing methods,
   findings, robustness, and writing-handoff documents.
+- A dated revised manuscript draft with the updated Method, Results, Discussion,
+  Table 1, and two analysis figures in `deliverables/`.
 - Selected safe-to-share figures and aggregate CSV outputs.
 
 ## Current evidence boundary
@@ -41,6 +43,12 @@ outputs, install the optional document dependency and run:
 ```powershell
 python -m pip install -e ".[docs]"
 python scripts/build_collaborator_brief.py
+```
+
+The revised manuscript can be rebuilt with the same document dependency:
+
+```powershell
+python scripts/build_revised_manuscript.py
 ```
 
 ## Data handling

@@ -18,8 +18,9 @@ and we do not report sentiment or causal claims.
 
 For our meeting, I suggest we focus on the findings, the appropriate caveats,
 and the paper's Method, Results, and Discussion framing rather than additional
-analysis decisions. The concise brief is attached, and the reproducible code and
-shareable evidence are here: https://github.com/v-tristow_microsoft/antiwork-topic-modeling
+analysis decisions. The attached concise analysis brief already includes the
+condensed methods, results, figures, and robustness context. The reproducible
+code and shareable evidence are here: https://github.com/v-tristow_microsoft/antiwork-topic-modeling
 
 Best,
 [Your Name]
