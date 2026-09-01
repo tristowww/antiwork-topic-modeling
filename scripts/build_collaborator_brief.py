@@ -190,6 +190,7 @@ def robustness_table(doc) -> None:
 
 
 def configure(doc: Document) -> None:
+    doc.settings.odd_and_even_pages_header_footer = False
     section = doc.sections[0]
     section.top_margin = Inches(0.76)
     section.bottom_margin = Inches(0.7)
@@ -202,7 +203,7 @@ def configure(doc: Document) -> None:
     set_run(h.add_run("ANTIWORK TOPIC MODELING | EXPLORATORY ANALYSIS BRIEF"), 8.2, MUTED, True)
     f = section.footer.paragraphs[0]
     f.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    set_run(f.add_run("Prepared 26 August 2026 | Exploratory evidence package"), 8.2, MUTED)
+    set_run(f.add_run("Prepared 1 September 2026 | Exploratory evidence package"), 8.2, MUTED)
     normal = doc.styles["Normal"]
     normal.font.name = "Calibri"
     normal._element.rPr.rFonts.set(qn("w:ascii"), "Calibri")
@@ -236,6 +237,26 @@ def build() -> None:
     heading(doc, "Headline patterns")
     findings_table(doc)
     paragraph(doc, "All percentages use every filtered post in each rolling window as the denominator. They describe the mapped subset, not all potentially relevant content in the corpus.", size=8.5, color=MUTED, italic=True, after=4)
+    doc.add_page_break()
+
+    heading(doc, "Analysis steps completed")
+    paragraph(doc, "This sequence was completed before the writing handoff. It separates deterministic corpus checks, model-based topic discovery, descriptive prevalence estimates, and robustness evidence.", size=9.5, color=MUTED, after=8)
+    steps = [
+        ("Freeze and audit the corpus", "Matched the management-related filter to the preprocessed analysis corpus and confirmed 97,254 unique post IDs. A duplicate audit found 1.2% residual duplicate non-placeholder texts; this is reported rather than silently removed."),
+        ("Construct the primary text field", "Used post title plus body after handling deleted and placeholder content. A title-only run was retained as a sensitivity analysis, not substituted for the primary representation."),
+        ("Discover topics with a current topic-modeling pipeline", "Embedded documents with all-MiniLM-L6-v2, reduced the embedding space with UMAP, clustered with HDBSCAN, and represented topics with BERTopic c-TF-IDF. The full-corpus model produced 199 non-outlier clusters and assigned 38.6% of posts."),
+        ("Document the theme map", "Reviewed the largest 30 clusters and retained 27 interpretable clusters in a nine-theme candidate codebook. Generic, deleted, and community-meta clusters were excluded, yielding 18,506 mapped posts (19.0% of the full filtered corpus)."),
+        ("Estimate descriptive longitudinal patterns", "Calculated each theme's share of every filtered post in four March-to-February rolling windows. Figure 1 shows the resulting exploratory prevalence patterns; Figure 2 shows monthly assignment coverage so the mapped share is visible."),
+        ("Test stability and state the boundary", "Ran seed-stability checks, title-only sensitivity, and unique-post overlap checks across rolling windows. Sentiment was intentionally not analyzed, and the paper will make no causal or full-conversation prevalence claims."),
+    ]
+    for number, (title, detail) in enumerate(steps, start=1):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(6)
+        set_run(p.add_run(f"{number}. {title}. "), 10.0, NAVY, True)
+        set_run(p.add_run(detail), 9.5, INK)
+    paragraph(doc, "The repository retains the reproducible scripts, codebook, diagnostics, and the evidence used for the brief; the brief itself contains the decisions and figures needed for a writing handoff.", size=8.6, color=MUTED, italic=True, after=0)
+    doc.add_page_break()
+
     doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "candidate_theme_rolling_window_prevalence.png"), width=Inches(4.55))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
     paragraph(doc, "Figure 1. Exploratory prevalence by rolling window. The 27-cluster map excludes generic, deleted, and community-meta clusters.", size=8.2, color=MUTED, italic=True, after=0)
