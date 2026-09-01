@@ -18,7 +18,7 @@ from docx.shared import Inches, Pt, RGBColor
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "deliverables"
 OUT_DOCX = OUT_DIR / "Antiwork_Exploratory_Analysis_Brief.docx"
-REPO_URL = "https://github.com/v-tristow_microsoft/antiwork-topic-modeling"
+REPO_URL = "https://github.com/tristowww/antiwork-topic-modeling"
 
 NAVY = "17365D"
 BLUE = "2E74B5"

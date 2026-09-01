@@ -22,7 +22,7 @@ analysis decisions. The attached concise analysis brief already includes the
 detailed analysis steps, condensed methods, results, figures, and robustness
 context. A revised manuscript draft is also included; its remaining work is a
 final editorial consistency pass on retained Background language. The
-reproducible code and shareable evidence are here: https://github.com/v-tristow_microsoft/antiwork-topic-modeling
+reproducible code and shareable evidence are here: https://github.com/tristowww/antiwork-topic-modeling
 
 Best,
 [Your Name]
