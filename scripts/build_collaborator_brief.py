@@ -250,7 +250,7 @@ def build() -> None:
         ("Construct the primary text field", "Used post title plus body after handling deleted and placeholder content. A title-only run was retained as a sensitivity analysis, not substituted for the primary representation."),
         ("Discover topics with a current topic-modeling pipeline", "Embedded documents with all-MiniLM-L6-v2, reduced the embedding space with UMAP, clustered with HDBSCAN, and represented topics with BERTopic c-TF-IDF. The full-corpus model produced 199 non-outlier clusters and assigned 38.6% of posts."),
         ("Document the theme map", "Reviewed the largest 30 clusters and retained 27 interpretable clusters in a nine-theme candidate codebook. Generic, deleted, and community-meta clusters were excluded, yielding 18,506 mapped posts (19.0% of the full filtered corpus)."),
-        ("Estimate descriptive longitudinal patterns", "Calculated each theme's share of every filtered post in four March-to-February rolling windows. Figure 1 shows the resulting exploratory prevalence patterns; Figure 2 shows monthly assignment coverage so the mapped share is visible."),
+        ("Estimate descriptive longitudinal patterns", "Calculated each theme's share of every filtered post in four March-to-February rolling windows. The figures in this brief show the main monthly patterns, the full reviewed-theme comparison, and monthly assignment coverage."),
         ("Test stability and state the boundary", "Ran seed-stability checks, title-only sensitivity, and unique-post overlap checks across rolling windows. Sentiment was intentionally not analyzed, and the paper will make no causal or full-conversation prevalence claims."),
     ]
     for number, (title, detail) in enumerate(steps, start=1):
@@ -259,18 +259,29 @@ def build() -> None:
         set_run(p.add_run(f"{number}. {title}. "), 10.0, NAVY, True)
         set_run(p.add_run(detail), 9.5, INK)
     paragraph(doc, "The repository includes the reproducible scripts, codebook, diagnostics, and aggregate evidence used in this brief.", size=8.6, color=MUTED, italic=True, after=0)
+    heading(doc, "From collection to estimates", 2)
+    doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "brief_collection_to_results_flow.png"), width=Inches(6.3))
+    doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph(doc, "Figure 1. The collection, filtering, modeling, review, and estimation sequence used for the exploratory analysis.", size=8.2, color=MUTED, italic=True, after=0)
     doc.add_page_break()
 
+    heading(doc, "Monthly patterns in the main themes")
+    doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "brief_key_theme_monthly_trends.png"), width=Inches(6.3))
+    doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph(doc, "Figure 2. Three-month rolling prevalence of the themes that anchor the main interpretation. Shares use all filtered posts each month as the denominator.", size=8.2, color=MUTED, italic=True, after=0)
+    doc.add_page_break()
+
+    heading(doc, "All reviewed themes by rolling window")
     doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "candidate_theme_rolling_window_prevalence.png"), width=Inches(4.55))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-    paragraph(doc, "Figure 1. Exploratory prevalence by rolling window. The 27-cluster map excludes generic, deleted, and community-meta clusters.", size=8.2, color=MUTED, italic=True, after=0)
+    paragraph(doc, "Figure 3. Exploratory prevalence by rolling window. The 27-cluster map excludes generic, deleted, and community-meta clusters.", size=8.2, color=MUTED, italic=True, after=0)
 
     heading(doc, "Analytic approach and scope")
     callout_pair(doc, "Primary analysis", "Sentence-transformer embeddings (all-MiniLM-L6-v2), UMAP, HDBSCAN, BERTopic topic representations, and a full-corpus model for longitudinal prevalence. Per-window fits serve as stability diagnostics.", "Coverage of estimates", "The model assigns 38.6% of posts to non-outlier clusters. The final theme map covers 18,506 posts: 19.0% of all filtered posts and 49.3% of assigned posts.")
     heading(doc, "Assignment coverage", 2)
     doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "monthly_assignment_coverage.png"), width=Inches(5.8))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-    paragraph(doc, "Figure 2. Assignment coverage varied from 33.1% to 44.0% by month. Outliers are a coverage limitation, not a substantive category.", size=8.2, color=MUTED, italic=True)
+    paragraph(doc, "Figure 4. Assignment coverage varied from 33.1% to 44.0% by month. Outliers are a coverage limitation, not a substantive category.", size=8.2, color=MUTED, italic=True)
     doc.add_page_break()
     heading(doc, "Robustness checks", 2)
     robustness_table(doc)
