@@ -5,6 +5,7 @@ excerpts, embeddings, and local-only analysis artifacts are intentionally absent
 """
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 from docx import Document
@@ -19,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "deliverables"
 OUT_DOCX = OUT_DIR / "Antiwork_Exploratory_Analysis_Brief.docx"
 REPO_URL = "https://github.com/tristowww/antiwork-topic-modeling"
+CODEBOOK_PATH = ROOT / "planning" / "CANDIDATE_THEME_CODEBOOK.csv"
 
 NAVY = "17365D"
 BLUE = "2E74B5"
@@ -189,6 +191,37 @@ def robustness_table(doc) -> None:
         set_run(cells[1].paragraphs[0].add_run(result), 8.5)
 
 
+def reviewed_cluster_table(doc, rows: list[dict[str, str]]) -> None:
+    """Render a compact, inspectable appendix table for the reviewed clusters."""
+    table = doc.add_table(rows=1, cols=4)
+    set_table_widths(table, [620, 2200, 4800, 1740])
+    headers = ["ID", "Representative terms", "Candidate theme and subtheme", "Decision"]
+    for cell, label in zip(table.rows[0].cells, headers):
+        shade(cell, LIGHT_BLUE)
+        set_run(cell.paragraphs[0].add_run(label), 8.0, NAVY, True)
+
+    for index, row in enumerate(rows):
+        cells = table.add_row().cells
+        if index % 2:
+            for cell in cells:
+                shade(cell, "FAFBFC")
+        terms = " ".join(row["top_terms"].split()[:6])
+        candidate = f"{row['candidate_theme']}\n{row['candidate_subtheme']}"
+        decision = f"{row['decision'].title()}\n{row['confidence']} confidence"
+        if row["decision"] == "include":
+            shade(cells[3], "E2F0D9")
+        else:
+            shade(cells[3], LIGHT_GRAY)
+        for cell, value in zip(cells, (row["topic"], terms, candidate, decision)):
+            set_run(cell.paragraphs[0].add_run(value), 7.5, INK, cell is cells[0])
+
+
+def load_reviewed_clusters() -> list[dict[str, str]]:
+    with CODEBOOK_PATH.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    return sorted(rows, key=lambda row: int(row["topic"]))
+
+
 def configure(doc: Document) -> None:
     doc.settings.odd_and_even_pages_header_footer = True
     section = doc.sections[0]
@@ -205,7 +238,7 @@ def configure(doc: Document) -> None:
     for footer in (section.footer, section.even_page_footer):
         f = footer.paragraphs[0]
         f.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        set_run(f.add_run("Prepared 1 September 2026 | Exploratory evidence package"), 8.2, MUTED)
+        set_run(f.add_run("Updated 2 September 2026 | Exploratory evidence package"), 8.2, MUTED)
     normal = doc.styles["Normal"]
     normal.font.name = "Calibri"
     normal._element.rPr.rFonts.set(qn("w:ascii"), "Calibri")
@@ -235,12 +268,12 @@ def build() -> None:
     metric_strip(doc)
     heading(doc, "Study summary")
     paragraph(doc, "Across 97,254 management-related r/antiwork posts from March 2021 through February 2025, the updated BERTopic analysis identifies a descriptive shift away from COVID-centered health and safety discussion and toward scheduling and time-off discussion. Compensation, career precarity, and recruitment remain present across the four rolling windows.")
-    callout_pair(doc, "Completed analysis", "Rebuilt the analysis with BERTopic; exported document-level assignments and four rolling-window fits; finalized a 27-cluster, nine-theme codebook; and produced figures and reproducibility materials.", "Interpretive scope", "The findings describe prevalence patterns within the documented theme map. They do not support causal claims, full-conversation prevalence estimates, or sentiment conclusions.")
+    callout_pair(doc, "Completed analysis", "Rebuilt the analysis with BERTopic; exported document-level assignments and four rolling-window fits; finalized a 27-cluster, nine-theme codebook; and produced figures and reproducibility materials.", "Interpretive scope", "The figures show the share of all filtered posts captured by included candidate-theme clusters. The 27-cluster map is not a full taxonomy or a complete estimate of management-related content.")
     heading(doc, "Selected findings")
     findings_table(doc)
-    paragraph(doc, "All percentages use every filtered post in each rolling window as the denominator. They describe the mapped subset, not all potentially relevant content in the corpus.", size=8.5, color=MUTED, italic=True, after=4)
+    paragraph(doc, "All percentages divide posts in included candidate-theme clusters by every filtered post in the same rolling window. They show the portion of the filtered corpus captured by this 27-cluster map, not a complete measure of all management-related content.", size=8.5, color=MUTED, italic=True, after=4)
     heading(doc, "Data collection", 2)
-    paragraph(doc, "Public r/antiwork submissions were retrieved through the Arctic Shift archive API in monthly UTC batches from 1 March 2021 through 1 March 2025. The analysis retained unique posts whose title or body matched the established management terms boss, manager, supervisor, or team lead, including plural variants. The resulting corpus is an archive-based sample of public discourse, not a representative sample of employees or an author-level panel.", size=9.1, after=0)
+    paragraph(doc, "Public r/antiwork submissions were retrieved through the Arctic Shift archive API in monthly UTC batches from 1 March 2021 through 1 March 2025. The analysis retained unique posts whose title or body matched the established management terms boss, manager, supervisor, or team lead, including plural variants. The resulting corpus is an archive-based sample of public discourse, not a representative sample of employees or an author-level panel. Archive records may differ from content displayed on Reddit after collection.", size=9.1, after=0)
     doc.add_page_break()
 
     heading(doc, "Analytic workflow")
@@ -251,14 +284,14 @@ def build() -> None:
         ("Discover topics with a current topic-modeling pipeline", "Embedded documents with all-MiniLM-L6-v2, reduced the embedding space with UMAP, clustered with HDBSCAN, and represented topics with BERTopic c-TF-IDF. The full-corpus model produced 199 non-outlier clusters and assigned 38.6% of posts."),
         ("Document the theme map", "Reviewed the largest 30 clusters and retained 27 interpretable clusters in a nine-theme candidate codebook. Generic, deleted, and community-meta clusters were excluded, yielding 18,506 mapped posts (19.0% of the full filtered corpus)."),
         ("Estimate descriptive longitudinal patterns", "Calculated each theme's share of every filtered post in four March-to-February rolling windows. The figures in this brief show the main monthly patterns, the full reviewed-theme comparison, and monthly assignment coverage."),
-        ("Test stability and state the boundary", "Ran seed-stability checks, title-only sensitivity, and unique-post overlap checks across rolling windows. Sentiment was intentionally not analyzed, and the paper will make no causal or full-conversation prevalence claims."),
+        ("Test stability and state the boundary", "Ran seed-stability checks, title-only sensitivity, and one-to-one top-term alignment checks across rolling-window fits. Sentiment was intentionally not analyzed, and the paper will make no causal or full-conversation prevalence claims."),
     ]
     for number, (title, detail) in enumerate(steps, start=1):
         p = doc.add_paragraph()
         p.paragraph_format.space_after = Pt(6)
         set_run(p.add_run(f"{number}. {title}. "), 10.0, NAVY, True)
         set_run(p.add_run(detail), 9.5, INK)
-    paragraph(doc, "The repository includes the reproducible scripts, codebook, diagnostics, and aggregate evidence used in this brief.", size=8.6, color=MUTED, italic=True, after=0)
+    paragraph(doc, "The private repository includes the analysis scripts, codebook, diagnostics, and aggregate evidence used in this brief. Raw posts and text-level samples remain local.", size=8.6, color=MUTED, italic=True, after=0)
     heading(doc, "From collection to estimates", 2)
     doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "brief_collection_to_results_flow.png"), width=Inches(6.3))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -291,15 +324,24 @@ def build() -> None:
     callout_pair(doc, "Observed patterns", "Within the mapped themes, health, safety, and attendance discussion declined over the four windows, while scheduling, hours, and time-off discussion increased. Compensation, career precarity, and recruitment remained visible throughout.", "What the results support", "These patterns describe changes in the composition of management-related public discussion. They identify domains for follow-up with representative employee data; they do not establish employee sentiment, turnover drivers, or policy effects.")
 
     heading(doc, "Remaining work")
-    callout_pair(doc, "Available for drafting", "Results, figures, a theme codebook, coverage diagnostics, seed stability, text-mode sensitivity, and a defined interpretive scope are ready for the manuscript.", "Optional extensions", "Sentiment annotation, a larger codebook, saved-model refit, TopicGPT comparison, and the MPNet check are possible extensions, but are not required for this exploratory paper.")
+    callout_pair(doc, "Available for drafting", "Results, figures, a theme codebook, coverage diagnostics, seed stability, text-mode sensitivity, and a defined interpretive scope are ready for the manuscript.", "Out-of-scope extensions", "A broader cluster review, an independent encoder check when compute permits, or a future sentiment study with a validated human reference set can be considered separately. None are required for this paper.")
     heading(doc, "Manuscript revision status", 2)
-    callout_pair(doc, "Sections revised", "The revised manuscript includes the title and abstract; current-study framing and research question; Methods, Results, Discussion, implications, limitations; figures; and primary BERTopic references.", "Before circulation", "Harmonize retained Background language with the paper's exploratory, descriptive scope. Historical theory and prior turnover findings should remain context, not claims tested by this study.")
+    callout_pair(doc, "Sections revised", "The revised manuscript includes the title and abstract; current-study framing and research question; Methods, Results, Discussion, implications, limitations; figures; and primary BERTopic references.", "Before circulation", "Correct the denominator language, add the archive-source statement, and harmonize retained Background language with the paper's exploratory, descriptive scope. Historical theory and prior turnover findings should remain context, not claims tested by this study.")
     heading(doc, "Materials for drafting", 2)
     paragraph(doc, "Draft in this order: method and sampling frame; coverage and descriptive results; limitations; then an exploratory discussion. Use the documented theme map and avoid causal, full-conversation, or sentiment claims.", size=9.4, after=4)
     p = paragraph(doc, "Reproducible code and shareable evidence: ", size=9.4, after=4)
     hyperlink(p, REPO_URL, REPO_URL)
     paragraph(doc, "Method records: planning/SCRAPING.md, planning/PREPROCESSING.md, planning/WRITING_HANDOFF.md, planning/ROBUSTNESS.md, and planning/CANDIDATE_THEME_CODEBOOK.csv.", size=8.4, color=MUTED, after=3)
-    paragraph(doc, "Current status: the analysis package is complete and ready for drafting as a descriptive, exploratory topic-prevalence study.", size=9.4, color=NAVY, bold=True)
+    paragraph(doc, "Current status: the analysis outputs are complete. The manuscript needs a focused wording pass before circulation as a descriptive, exploratory topic-prevalence study.", size=9.4, color=NAVY, bold=True)
+
+    heading(doc, "Appendix: Reviewed cluster map")
+    paragraph(doc, "The table below makes the review trail visible. It lists all 30 largest clusters examined for the candidate-theme map, their representative terms, the assigned candidate theme and subtheme, and the inclusion decision.", size=9.4, after=6)
+    reviewed_clusters = load_reviewed_clusters()
+    for page, start in enumerate(range(0, len(reviewed_clusters), 15), start=1):
+        if page > 1:
+            doc.add_page_break()
+        heading(doc, f"Reviewed clusters {start + 1}-{min(start + 15, len(reviewed_clusters))}", 2)
+        reviewed_cluster_table(doc, reviewed_clusters[start:start + 15])
     doc.save(OUT_DOCX)
     print(OUT_DOCX)
 
