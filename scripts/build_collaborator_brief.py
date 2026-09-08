@@ -238,7 +238,7 @@ def configure(doc: Document) -> None:
     for footer in (section.footer, section.even_page_footer):
         f = footer.paragraphs[0]
         f.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        set_run(f.add_run("Updated 2 September 2026 | Exploratory evidence package"), 8.2, MUTED)
+        set_run(f.add_run("Updated 8 September 2026 | Exploratory evidence package"), 8.2, MUTED)
     normal = doc.styles["Normal"]
     normal.font.name = "Calibri"
     normal._element.rPr.rFonts.set(qn("w:ascii"), "Calibri")
@@ -326,7 +326,9 @@ def build() -> None:
     heading(doc, "Remaining work")
     callout_pair(doc, "Available for drafting", "Results, figures, a theme codebook, coverage diagnostics, seed stability, text-mode sensitivity, and a defined interpretive scope are ready for the manuscript.", "Out-of-scope extensions", "A broader cluster review, an independent encoder check when compute permits, or a future sentiment study with a validated human reference set can be considered separately. None are required for this paper.")
     heading(doc, "Manuscript revision status", 2)
-    callout_pair(doc, "Sections revised", "The revised manuscript includes the title and abstract; current-study framing and research question; Methods, Results, Discussion, implications, limitations; figures; and primary BERTopic references.", "Before circulation", "Correct the denominator language, add the archive-source statement, and harmonize retained Background language with the paper's exploratory, descriptive scope. Historical theory and prior turnover findings should remain context, not claims tested by this study.")
+    callout_pair(doc, "Sections revised", "The revised manuscript includes the title and abstract; current-study framing and research question; Methods, Results, Discussion, implications, limitations; figures; and primary BERTopic references.", "Before circulation", "Correct the denominator language, add the archive-source statement and sampling-frame framing note, and harmonize retained Background language with the paper's exploratory, descriptive scope. Historical theory and prior turnover findings should remain context, not claims tested by this study.")
+    heading(doc, "Sampling-frame framing", 2)
+    callout_pair(doc, "Intended analytic focus", "The management-term filter intentionally concentrates a problem-oriented, likely negatively skewed subset of r/antiwork discussion. The purpose was to surface recurring management concerns that may warrant follow-up.", "Boundary for the manuscript", "Do not present the results as average employee sentiment or a standalone priority ranking. Frame the themes as candidate areas to examine alongside representative evidence and organizational context.")
     heading(doc, "Materials for drafting", 2)
     paragraph(doc, "Draft in this order: method and sampling frame; coverage and descriptive results; limitations; then an exploratory discussion. Use the documented theme map and avoid causal, full-conversation, or sentiment claims.", size=9.4, after=4)
     p = paragraph(doc, "Reproducible code and shareable evidence: ", size=9.4, after=4)
