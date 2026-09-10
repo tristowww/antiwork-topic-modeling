@@ -1,0 +1,46 @@
+{
+  "generated_at_utc": "2026-09-08T23:37:32.469851+00:00",
+  "interpretation": "Whole-post expressed polarity estimated by a pretrained social-media RoBERTa classifier; not human-validated or target-specific management sentiment.",
+  "input_posts": 97254,
+  "scored_posts": 97254,
+  "empty_after_placeholder_cleanup": 0,
+  "hard_label_counts": {
+    "negative": 61151,
+    "neutral": 29543,
+    "positive": 6560
+  },
+  "hard_label_shares": {
+    "negative": 0.6287761942953504,
+    "neutral": 0.30377156723630905,
+    "positive": 0.06745223846834063
+  },
+  "mean_posterior_probability": {
+    "negative": 0.5405949950218201,
+    "neutral": 0.3570869266986847,
+    "positive": 0.10231811553239822
+  },
+  "mean_max_probability": 0.6999320983886719,
+  "low_confidence_share_under_0_60": 0.28246653093960145,
+  "truncated_posts": 15957,
+  "truncated_share": 0.16407551360355357,
+  "input_token_mean": 299.46316861003146,
+  "input_token_p95": 885.0,
+  "model": {
+    "model": "cardiffnlp/twitter-roberta-base-sentiment-latest",
+    "revision": "3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7",
+    "execution_engine": "ONNX Runtime CPUExecutionProvider",
+    "onnxruntime_version": "1.29.0",
+    "transformers_version": "4.57.6",
+    "max_length": 512,
+    "batch_size": 32,
+    "threads": 8,
+    "onnx_cache": "outputs\\sentiment\\model_cache\\twitter_roberta_base_sentiment_latest_onnx",
+    "onnx_exported_this_run": false,
+    "labels": [
+      "negative",
+      "neutral",
+      "positive"
+    ]
+  },
+  "run_duration_seconds": 31325.556
+}

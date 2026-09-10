@@ -1,0 +1,24 @@
+{
+  "interpretation": "Whole-post RoBERTa polarity estimates conditional on assignment to an included candidate-theme cluster; not theme prevalence, human-validated sentiment, or management-targeted sentiment.",
+  "join": "One-to-one join from complete post-level sentiment labels to full-corpus BERTopic assignments, then many-to-one mapping to the documented included codebook clusters. Neither model was refit.",
+  "mapped_posts": 18506,
+  "candidate_themes": 9,
+  "sentiment_model": {
+    "model": "cardiffnlp/twitter-roberta-base-sentiment-latest",
+    "revision": "3216a57f2a0d9c45a2e6c20157c20c49fb4bf9c7",
+    "execution_engine": "ONNX Runtime CPUExecutionProvider",
+    "onnxruntime_version": "1.29.0",
+    "transformers_version": "4.57.6",
+    "max_length": 512,
+    "batch_size": 32,
+    "threads": 8,
+    "onnx_cache": "outputs\\sentiment\\model_cache\\twitter_roberta_base_sentiment_latest_onnx",
+    "onnx_exported_this_run": false,
+    "labels": [
+      "negative",
+      "neutral",
+      "positive"
+    ]
+  },
+  "source_sentiment_output": "outputs\\sentiment\\twitter_roberta_base_sentiment_latest"
+}

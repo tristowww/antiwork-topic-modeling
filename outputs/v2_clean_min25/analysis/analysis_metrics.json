@@ -9,8 +9,5 @@
   "assignment_rate_min": 0.331395,
   "assignment_rate_max": 0.440246,
   "review_topics": 30,
-  "review_posts": 120,
-  "sentiment_calibration_posts": 60,
-  "sentiment_human_holdout_posts": 300,
-  "sentiment_llm_pilot_posts": 1000
+  "review_posts": 120
 }

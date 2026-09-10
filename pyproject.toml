@@ -29,6 +29,9 @@ nlp = [
     "umap-learn>=0.5",
     "hdbscan>=0.8",
     "scikit-learn>=1.4",
+    "transformers>=4.45,<4.58",
+    "torch>=2.2",
+    "optimum-onnx[onnxruntime]>=0.1,<0.2",
 ]
 
 viz = [

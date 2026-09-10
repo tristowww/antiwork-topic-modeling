@@ -34,9 +34,12 @@ def build_key_theme_trends() -> Path:
     for axis, (theme, label, color) in zip(axes, themes):
         series = monthly.loc[monthly["candidate_theme"].eq(theme)].sort_values("month")
         values = series["three_month_share_all_posts"] * 100
+        axis.axvspan(pd.Timestamp("2021-03-01"), pd.Timestamp("2022-03-01"), color="#E5C07B", alpha=0.24, zorder=0)
+        axis.axvline(pd.Timestamp("2022-03-01"), color="#9A6A24", linestyle="--", linewidth=1.0, alpha=0.9, zorder=2)
         axis.plot(series["month"], values, color=color, linewidth=2.2)
         axis.scatter(series["month"], values, color=color, s=8, zorder=3)
-        axis.set_title(label, loc="left", fontsize=9.5, fontweight="bold", color="#22313F", pad=8)
+        theme_n = int(series["post_count"].sum())
+        axis.set_title(f"{label}\n(n={theme_n:,} across all windows)", loc="left", fontsize=9.0, fontweight="bold", color="#22313F", pad=8)
         axis.set_ylim(0, 6.5)
         axis.yaxis.set_major_formatter("{x:.0f}%")
         axis.xaxis.set_major_locator(mdates.YearLocator())
@@ -46,7 +49,7 @@ def build_key_theme_trends() -> Path:
         axis.spines[["left", "bottom"]].set_color("#8B98A3")
         axis.tick_params(labelsize=8, color="#8B98A3")
     axes[0].set_ylabel("Share of all filtered posts", fontsize=8.6, color="#22313F")
-    fig.text(0.01, 0.01, "Three-month rolling shares; denominator is all filtered posts each month. The reviewed theme map covers 19.0% of the corpus.", fontsize=8, color=MUTED)
+    fig.text(0.01, 0.01, "Three-month rolling shares; shading marks the Y1 Great Resignation window (Mar 2021-Feb 2022) and the dashed line marks March 2022. Denominator is all filtered posts each month; panel n values are theme counts across all windows.", fontsize=7.45, color=MUTED)
     fig.tight_layout(rect=[0, 0.08, 1, 1])
     path = FIGURE_DIR / "brief_key_theme_monthly_trends.png"
     fig.savefig(path, dpi=200, bbox_inches="tight", facecolor="white")
@@ -60,7 +63,7 @@ def build_method_flow() -> Path:
     axis.set_ylim(0, 1)
     axis.axis("off")
     boxes = [
-        ("Collection", "Public posts\nMar 2021 to Feb 2025"),
+        ("Collection", "577,190 records\nMar 2021 to Feb 2025"),
         ("Filter and\ndeduplicate", "Management terms\n97,254 unique posts"),
         ("Model", "Title plus body\nBERTopic model"),
         ("Review and\nestimate", "27 clusters\nNine themes\nRolling shares"),

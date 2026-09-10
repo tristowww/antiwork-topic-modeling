@@ -18,8 +18,9 @@ March 2021 through February 2025.
 The primary analysis uses a full-corpus BERTopic model over 97,254 filtered
 posts. The documented 27-cluster theme map covers 18,506 posts, or 19.0% of the
 full corpus and 49.3% of non-outlier assignments. Results are descriptive and
-exploratory, not causal or complete-corpus prevalence estimates. No sentiment
-results are reported.
+exploratory, not causal or complete-corpus prevalence estimates. A separate,
+context-aware whole-corpus sentiment check is available, with its own
+interpretive boundary.
 
 ## Reproduce locally
 
@@ -30,12 +31,18 @@ data present, install dependencies and run the appropriate module:
 python -m pip install -e ".[nlp,viz]"
 python -m src.collaborator_analysis --out-dir outputs/v2_clean_min25
 python -m src.theme_trends --out-dir outputs/v2_clean_min25 --codebook planning/CANDIDATE_THEME_CODEBOOK.csv
+python -m src.theme_hierarchy
 python -m src.topic_alignment --out-dir outputs/v2_clean_min25 --top-n 15 --threshold 0.2
+python -m src.sentiment --overwrite
+python -m src.theme_sentiment
 ```
 
 Read [planning/WRITING_HANDOFF.md](planning/WRITING_HANDOFF.md) for the results
 that can be drafted and [planning/ROBUSTNESS.md](planning/ROBUSTNESS.md) for
-the evidence boundary and sensitivity results.
+the evidence boundary and sensitivity results. Read
+[planning/SENTIMENT.md](planning/SENTIMENT.md) before reporting sentiment
+outputs; they are model-based whole-post polarity estimates, not human-validated
+or management-targeted sentiment labels.
 
 To rebuild the collaborator brief from the checked-in figures and aggregate
 outputs, install the optional document dependency and run:

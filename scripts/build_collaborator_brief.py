@@ -6,6 +6,8 @@ excerpts, embeddings, and local-only analysis artifacts are intentionally absent
 from __future__ import annotations
 
 import csv
+import json
+from collections import Counter
 from pathlib import Path
 
 from docx import Document
@@ -21,6 +23,11 @@ OUT_DIR = ROOT / "deliverables"
 OUT_DOCX = OUT_DIR / "Antiwork_Exploratory_Analysis_Brief.docx"
 REPO_URL = "https://github.com/tristowww/antiwork-topic-modeling"
 CODEBOOK_PATH = ROOT / "planning" / "CANDIDATE_THEME_CODEBOOK.csv"
+TOPIC_ASSIGNMENTS_PATH = ROOT / "outputs" / "v2_clean_min25" / "bertopic_full_document_topics.csv"
+WINDOW_PREVALENCE_PATH = ROOT / "outputs" / "v2_clean_min25" / "analysis" / "candidate_theme_window_prevalence.csv"
+RAW_ARCHIVE_SUBMISSION_RECORDS = 577_190
+SENTIMENT_DIR = ROOT / "outputs" / "sentiment" / "twitter_roberta_base_sentiment_latest"
+SENTIMENT_SUMMARY_PATH = SENTIMENT_DIR / "sentiment_summary.json"
 
 NAVY = "17365D"
 BLUE = "2E74B5"
@@ -132,14 +139,27 @@ def callout_pair(doc, left_title: str, left_text: str, right_title: str, right_t
         set_run(p.add_run(body), 9.2)
 
 
+def corpus_metrics() -> dict[str, int]:
+    with TOPIC_ASSIGNMENTS_PATH.open(newline="", encoding="utf-8") as handle:
+        assignments = list(csv.DictReader(handle))
+    with CODEBOOK_PATH.open(newline="", encoding="utf-8") as handle:
+        included_topics = {int(row["topic"]) for row in csv.DictReader(handle) if row["decision"] == "include"}
+    return {
+        "filtered_posts": len(assignments),
+        "assigned_posts": sum(int(row["topic"]) >= 0 for row in assignments),
+        "mapped_posts": sum(int(row["topic"]) in included_topics for row in assignments),
+    }
+
+
 def metric_strip(doc) -> None:
+    metrics = corpus_metrics()
     table = doc.add_table(rows=1, cols=4)
     set_table_widths(table, [2340, 2340, 2340, 2340])
     for cell, (value, label) in zip(table.rows[0].cells, [
-        ("97,254", "filtered posts"),
+        (f"{metrics['filtered_posts']:,}", "filtered posts"),
         ("199", "non-outlier clusters"),
-        ("38.6%", "topic assignment"),
-        ("19.0%", "theme-map coverage"),
+        (f"{metrics['assigned_posts'] / metrics['filtered_posts']:.1%}", f"topic assignment\nn={metrics['assigned_posts']:,} of {metrics['filtered_posts']:,}"),
+        (f"{metrics['mapped_posts'] / metrics['filtered_posts']:.1%}", f"theme-map coverage\nn={metrics['mapped_posts']:,} of {metrics['filtered_posts']:,}"),
     ]):
         shade(cell, "FAFBFC")
         cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -152,15 +172,25 @@ def metric_strip(doc) -> None:
 def findings_table(doc) -> None:
     table = doc.add_table(rows=1, cols=4)
     set_table_widths(table, [3300, 1500, 1500, 3060])
-    for cell, label in zip(table.rows[0].cells, ["Theme", "Y1", "Y4", "Interpretation"]):
+    with WINDOW_PREVALENCE_PATH.open(newline="", encoding="utf-8") as handle:
+        prevalence = list(csv.DictReader(handle))
+    lookup = {(row["candidate_theme"], row["rolling_window"]): row for row in prevalence}
+    y1_n = int(next(row["total_posts"] for row in prevalence if row["rolling_window"] == "Y1_2021-22"))
+    y4_n = int(next(row["total_posts"] for row in prevalence if row["rolling_window"] == "Y4_2024-25"))
+    for cell, label in zip(table.rows[0].cells, ["Theme", f"Y1\n(n={y1_n:,})", f"Y4\n(n={y4_n:,})", "Interpretation"]):
         shade(cell, LIGHT_BLUE)
         set_run(cell.paragraphs[0].add_run(label), 9, NAVY, True)
-    rows = [
-        ("Health safety and attendance", "4.97%", "2.50%", "Down 2.47 pp; early COVID/illness concentration contracts."),
-        ("Scheduling hours and time off", "1.71%", "3.20%", "Up 1.49 pp; largest mapped theme in Y4."),
-        ("Compensation and pay rights", "3.52%", "3.04%", "Remains substantial in every window after a Y2 high."),
-        ("Career precarity and exit", "2.54%", "2.47%", "Broadly stable across four rolling windows."),
-    ]
+    interpretation = {
+        "Health safety and attendance": "Early COVID/illness concentration contracts.",
+        "Scheduling hours and time off": "Largest mapped theme in Y4.",
+        "Compensation and pay rights": "Remains substantial in every window after a Y2 high.",
+        "Career precarity and exit": "Broadly stable across four rolling windows.",
+    }
+    rows = []
+    for theme, note in interpretation.items():
+        y1 = lookup[(theme, "Y1_2021-22")]
+        y4 = lookup[(theme, "Y4_2024-25")]
+        rows.append((theme, f"{float(y1['share_all_posts']):.2%}\n(n={int(y1['post_count']):,})", f"{float(y4['share_all_posts']):.2%}\n(n={int(y4['post_count']):,})", note))
     for index, row in enumerate(rows):
         cells = table.add_row().cells
         if index % 2:
@@ -168,6 +198,35 @@ def findings_table(doc) -> None:
                 shade(cell, "FAFBFC")
         for cell, value in zip(cells, row):
             set_run(cell.paragraphs[0].add_run(value), 8.5)
+
+
+def rolling_window_counts_table(doc) -> None:
+    """Show the numerator behind every rolling-window prevalence percentage."""
+    with WINDOW_PREVALENCE_PATH.open(newline="", encoding="utf-8") as handle:
+        prevalence = list(csv.DictReader(handle))
+    order = ["Y1_2021-22", "Y2_2022-23", "Y3_2023-24", "Y4_2024-25"]
+    totals = {window: int(next(row["total_posts"] for row in prevalence if row["rolling_window"] == window)) for window in order}
+    theme_order = (
+        Counter({theme: sum(int(row["post_count"]) for row in prevalence if row["candidate_theme"] == theme) for theme in {row["candidate_theme"] for row in prevalence}})
+        .most_common()
+    )
+    lookup = {(row["candidate_theme"], row["rolling_window"]): row for row in prevalence}
+    table = doc.add_table(rows=1, cols=5)
+    set_table_widths(table, [3000, 1590, 1590, 1590, 1590])
+    headers = ["Candidate theme", *[f"{window.replace('_', ' ')}\n(n={totals[window]:,})" for window in order]]
+    for cell, label in zip(table.rows[0].cells, headers):
+        shade(cell, LIGHT_BLUE)
+        set_run(cell.paragraphs[0].add_run(label), 7.8, NAVY, True)
+    for index, (theme, _) in enumerate(theme_order):
+        cells = table.add_row().cells
+        if index % 2:
+            for cell in cells:
+                shade(cell, "FAFBFC")
+        set_run(cells[0].paragraphs[0].add_run(theme), 7.5, INK, True)
+        for cell, window in zip(cells[1:], order):
+            row = lookup[(theme, window)]
+            value = f"{float(row['share_all_posts']):.2%}\n(n={int(row['post_count']):,})"
+            set_run(cell.paragraphs[0].add_run(value), 7.5, INK)
 
 
 def robustness_table(doc) -> None:
@@ -193,9 +252,9 @@ def robustness_table(doc) -> None:
 
 def reviewed_cluster_table(doc, rows: list[dict[str, str]]) -> None:
     """Render a compact, inspectable appendix table for the reviewed clusters."""
-    table = doc.add_table(rows=1, cols=4)
-    set_table_widths(table, [620, 2200, 4800, 1740])
-    headers = ["ID", "Representative terms", "Candidate theme and subtheme", "Decision"]
+    table = doc.add_table(rows=1, cols=5)
+    set_table_widths(table, [620, 620, 2050, 4500, 1570])
+    headers = ["ID", "n", "Representative terms", "Candidate theme and subtheme", "Decision"]
     for cell, label in zip(table.rows[0].cells, headers):
         shade(cell, LIGHT_BLUE)
         set_run(cell.paragraphs[0].add_run(label), 8.0, NAVY, True)
@@ -212,14 +271,30 @@ def reviewed_cluster_table(doc, rows: list[dict[str, str]]) -> None:
             shade(cells[3], "E2F0D9")
         else:
             shade(cells[3], LIGHT_GRAY)
-        for cell, value in zip(cells, (row["topic"], terms, candidate, decision)):
-            set_run(cell.paragraphs[0].add_run(value), 7.5, INK, cell is cells[0])
+        for cell, value in zip(cells, (row["topic"], f"{int(row['cluster_n']):,}", terms, candidate, decision)):
+            set_run(cell.paragraphs[0].add_run(value), 7.5, INK, cell in cells[:2])
 
 
 def load_reviewed_clusters() -> list[dict[str, str]]:
     with CODEBOOK_PATH.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
+    with TOPIC_ASSIGNMENTS_PATH.open(newline="", encoding="utf-8") as handle:
+        counts = Counter(int(row["topic"]) for row in csv.DictReader(handle))
+    for row in rows:
+        row["cluster_n"] = str(counts[int(row["topic"])])
     return sorted(rows, key=lambda row: int(row["topic"]))
+
+
+def load_sentiment_summary() -> dict[str, object]:
+    return json.loads(SENTIMENT_SUMMARY_PATH.read_text(encoding="utf-8"))
+
+
+def sentiment_outputs_available() -> bool:
+    return all(path.is_file() for path in [
+        SENTIMENT_SUMMARY_PATH,
+        SENTIMENT_DIR / "sentiment_by_rolling_window.png",
+        SENTIMENT_DIR / "theme_analysis" / "candidate_theme_negative_probability_by_month.png",
+    ])
 
 
 def configure(doc: Document) -> None:
@@ -238,7 +313,7 @@ def configure(doc: Document) -> None:
     for footer in (section.footer, section.even_page_footer):
         f = footer.paragraphs[0]
         f.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        set_run(f.add_run("Updated 8 September 2026 | Exploratory evidence package"), 8.2, MUTED)
+        set_run(f.add_run("Updated 10 September 2026 | Exploratory evidence package"), 8.2, MUTED)
     normal = doc.styles["Normal"]
     normal.font.name = "Calibri"
     normal._element.rPr.rFonts.set(qn("w:ascii"), "Calibri")
@@ -266,25 +341,26 @@ def build() -> None:
     paragraph(doc, "Antiwork Topic Modeling", size=22, color=NAVY, bold=True, after=2)
     paragraph(doc, "Exploratory longitudinal analysis for collaborator review", size=11.5, color=MUTED, after=12)
     metric_strip(doc)
+    has_sentiment = sentiment_outputs_available()
     heading(doc, "Study summary")
-    paragraph(doc, "Across 97,254 management-related r/antiwork posts from March 2021 through February 2025, the updated BERTopic analysis identifies a descriptive shift away from COVID-centered health and safety discussion and toward scheduling and time-off discussion. Compensation, career precarity, and recruitment remain present across the four rolling windows.")
+    paragraph(doc, f"Across {RAW_ARCHIVE_SUBMISSION_RECORDS:,} archived r/antiwork submission records retrieved from March 2021 through February 2025, the management-term filter retained 97,254 unique posts for analysis. The updated BERTopic analysis identifies a descriptive shift away from COVID-centered health and safety discussion and toward scheduling and time-off discussion. Compensation, career precarity, and recruitment remain present across the four rolling windows.")
     callout_pair(doc, "Completed analysis", "Rebuilt the analysis with BERTopic; exported document-level assignments and four rolling-window fits; finalized a 27-cluster, nine-theme codebook; and produced figures and reproducibility materials.", "Interpretive scope", "The figures show the share of all filtered posts captured by included candidate-theme clusters. The 27-cluster map is not a full taxonomy or a complete estimate of management-related content.")
     heading(doc, "Selected findings")
     findings_table(doc)
     paragraph(doc, "All percentages divide posts in included candidate-theme clusters by every filtered post in the same rolling window. They show the portion of the filtered corpus captured by this 27-cluster map, not a complete measure of all management-related content.", size=8.5, color=MUTED, italic=True, after=4)
     heading(doc, "Data collection", 2)
-    paragraph(doc, "Public r/antiwork submissions were retrieved through the Arctic Shift archive API in monthly UTC batches from 1 March 2021 through 1 March 2025. The analysis retained unique posts whose title or body matched the established management terms boss, manager, supervisor, or team lead, including plural variants. The resulting corpus is an archive-based sample of public discourse, not a representative sample of employees or an author-level panel. Archive records may differ from content displayed on Reddit after collection.", size=9.1, after=0)
+    paragraph(doc, f"Public r/antiwork submissions were retrieved through the Arctic Shift archive API in 48 monthly UTC batches from 1 March 2021 through 1 March 2025. This collection yielded {RAW_ARCHIVE_SUBMISSION_RECORDS:,} archived submission records before filtering. The analysis retained 97,254 unique posts whose title or body matched the established management terms boss, manager, supervisor, or team lead, including plural variants. The resulting corpus is an archive-based sample of public discourse, not a representative sample of employees or an author-level panel. Archive records may differ from content displayed on Reddit after collection.", size=9.1, after=0)
     doc.add_page_break()
 
     heading(doc, "Analytic workflow")
     paragraph(doc, "The analysis proceeded as follows. Corpus checks, model-based topic discovery, descriptive prevalence estimates, and robustness evidence are reported separately.", size=9.5, color=MUTED, after=8)
     steps = [
-        ("Freeze and audit the corpus", "Matched the management-related filter to the preprocessed analysis corpus and confirmed 97,254 unique post IDs. A duplicate audit found 1.2% residual duplicate non-placeholder texts; this is reported rather than silently removed."),
+        ("Collect, filter, and audit the corpus", f"Retrieved {RAW_ARCHIVE_SUBMISSION_RECORDS:,} archived submission records across 48 monthly pulls, then applied the management-term filter and confirmed 97,254 unique retained post IDs. A duplicate audit found 1.2% residual duplicate non-placeholder texts; this is reported rather than silently removed."),
         ("Construct the primary text field", "Used post title plus body after handling deleted and placeholder content. A title-only run was retained as a sensitivity analysis, not substituted for the primary representation."),
         ("Discover topics with a current topic-modeling pipeline", "Embedded documents with all-MiniLM-L6-v2, reduced the embedding space with UMAP, clustered with HDBSCAN, and represented topics with BERTopic c-TF-IDF. The full-corpus model produced 199 non-outlier clusters and assigned 38.6% of posts."),
         ("Document the theme map", "Reviewed the largest 30 clusters and retained 27 interpretable clusters in a nine-theme candidate codebook. Generic, deleted, and community-meta clusters were excluded, yielding 18,506 mapped posts (19.0% of the full filtered corpus)."),
         ("Estimate descriptive longitudinal patterns", "Calculated each theme's share of every filtered post in four March-to-February rolling windows. The figures in this brief show the main monthly patterns, the full reviewed-theme comparison, and monthly assignment coverage."),
-        ("Test stability and state the boundary", "Ran seed-stability checks, title-only sensitivity, and one-to-one top-term alignment checks across rolling-window fits. Sentiment was intentionally not analyzed, and the paper will make no causal or full-conversation prevalence claims."),
+        ("Test stability and state the boundary", "Ran seed-stability checks, title-only sensitivity, and one-to-one top-term alignment checks across rolling-window fits. A fixed RoBERTa whole-post polarity check then scored all 97,254 retained posts and was joined to the reviewed map without refitting either model; causal, human-validated sentiment, and full-conversation prevalence claims remain out of scope."),
     ]
     for number, (title, detail) in enumerate(steps, start=1):
         p = doc.add_paragraph()
@@ -304,40 +380,100 @@ def build() -> None:
     paragraph(doc, "Figure 2. Three-month rolling prevalence of the themes that anchor the main interpretation. Shares use all filtered posts each month as the denominator.", size=8.2, color=MUTED, italic=True, after=0)
     doc.add_page_break()
 
+    heading(doc, "Month-by-month longitudinal patterns in the ten largest reviewed clusters")
+    paragraph(doc, "The top-level candidate map contains nine themes, so a literal top-ten theme chart would be mislabeled. For the requested month-by-month longitudinal view, the figure below shows the ten largest included BERTopic clusters, nested within the nine-theme map and labeled as subthemes rather than as additional themes. Each panel uses the full filtered monthly corpus as its denominator.", size=9.1, after=4)
+    doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "top10_reviewed_subtheme_monthly_prevalence.png"), width=Inches(6.3))
+    doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph(doc, "Figure 3. Month-by-month longitudinal prevalence of the ten largest reviewed clusters, with each cluster's parent candidate theme in its label. The shaded period is the Y1 Great Resignation window, March 2021 through February 2022. Panel n values are full-period cluster sizes.", size=8.2, color=MUTED, italic=True, after=0)
+    doc.add_page_break()
+
     heading(doc, "All reviewed themes by rolling window")
     doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "candidate_theme_rolling_window_prevalence.png"), width=Inches(4.55))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-    paragraph(doc, "Figure 3. Exploratory prevalence by rolling window. The 27-cluster map excludes generic, deleted, and community-meta clusters.", size=8.2, color=MUTED, italic=True, after=0)
+    paragraph(doc, "Figure 4. Exploratory prevalence by rolling window. The legend gives each window denominator; Table 1 gives the numerator n behind every displayed percentage. The 27-cluster map excludes generic, deleted, and community-meta clusters.", size=8.2, color=MUTED, italic=True, after=0)
+    doc.add_page_break()
+
+    heading(doc, "Counts behind rolling-window percentages")
+    paragraph(doc, "Each cell gives the theme share of all filtered posts in that rolling window followed by its numerator n. The column-header n is the all-filtered-post denominator for that window.", size=9.1, after=5)
+    rolling_window_counts_table(doc)
+    paragraph(doc, "Table 1. Counts and prevalence for every reviewed candidate theme across the four rolling windows. Values describe the documented 27-cluster map, not all management-related discussion.", size=8.2, color=MUTED, italic=True, after=0)
+    doc.add_page_break()
+
+    heading(doc, "Reviewed theme hierarchy")
+    doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "reviewed_theme_hierarchy.png"), width=Inches(5.05))
+    doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph(doc, "Figure 5. The nine candidate themes, their included subthemes, and full-corpus cluster sizes. Node area scales with n; this documented map covers 18,506 posts, or 19.0% of the filtered corpus.", size=8.2, color=MUTED, italic=True, after=0)
+    doc.add_page_break()
+
+    heading(doc, "Exploratory Y1 and Y4 comparison")
+    paragraph(doc, "The comparison below contrasts the user-defined Great Resignation period, March 2021 through February 2022, with the most recent March 2024 through February 2025 window. It is a descriptive comparison of the reviewed theme map, not an estimate of the Great Resignation's effect.", size=9.1, after=4)
+    doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "candidate_theme_y1_y4_comparison.png"), width=Inches(6.3))
+    doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph(doc, "Figure 6. Candidate-theme prevalence in Y1 and Y4. The legend gives the all-filtered-post denominator for each window; Table 1 gives each theme numerator n; labels show descriptive percentage-point differences.", size=8.2, color=MUTED, italic=True, after=0)
+    doc.add_page_break()
+
+    heading(doc, "Whole-corpus polarity check")
+    if has_sentiment:
+        sentiment = load_sentiment_summary()
+        hard_shares = sentiment["hard_label_shares"]
+        posterior = sentiment["mean_posterior_probability"]
+        callout_pair(
+            doc,
+            "Context-aware model",
+            "A fixed social-media RoBERTa classifier estimated whole-post negative, neutral, and positive polarity across every retained post. This is a contextual transformer-based estimate, rather than a lexicon method such as VADER.",
+            "Interpretive boundary",
+            "The check is model-based, not human-validated or targeted specifically to management. It tests whether the intentionally problem-oriented sample is predominantly negative under this classifier; it does not estimate average employee sentiment.",
+        )
+        paragraph(
+            doc,
+            f"Across {sentiment['scored_posts']:,} scored posts, the model's hard labels were {hard_shares['negative']:.1%} negative, {hard_shares['neutral']:.1%} neutral, and {hard_shares['positive']:.1%} positive. Mean posterior probabilities were {posterior['negative']:.1%}, {posterior['neutral']:.1%}, and {posterior['positive']:.1%}, respectively. Mean maximum class probability was {sentiment['mean_max_probability']:.1%}; {sentiment['truncated_share']:.1%} of posts reached the 512-token limit.",
+            size=9.1,
+            after=4,
+        )
+        paragraph(doc, "The hard negative-label share was 59.8% (n=16,923 of 28,276) in Y1, the Great Resignation window, and 67.7% (n=8,096 of 11,960) in Y4. This descriptive increase is not a causal estimate and does not establish a change in employee sentiment.", size=9.1, after=4)
+        doc.add_picture(str(SENTIMENT_DIR / "sentiment_by_rolling_window.png"), width=Inches(6.3))
+        doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph(doc, "Figure 7. Whole-corpus RoBERTa polarity estimates across the four rolling windows. The hard-label and mean-posterior views are shown together because model uncertainty is material to interpretation.", size=8.2, color=MUTED, italic=True, after=0)
+        doc.add_page_break()
+
+        heading(doc, "Polarity within reviewed themes")
+        paragraph(doc, "The figure below joins the fixed post-level RoBERTa estimates to the existing reviewed BERTopic map. It does not refit either model. Values describe whole-post negative-polarity probability among posts assigned to each theme, while the prevalence figures above retain all filtered posts as their denominator.", size=9.1, after=4)
+        doc.add_picture(str(SENTIMENT_DIR / "theme_analysis" / "candidate_theme_negative_probability_by_month.png"), width=Inches(6.3))
+        doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph(doc, "Figure 8. Three-month rolling mean of modeled negative-polarity probability within the nine reviewed themes. The theme map covers 18,506 posts, or 19.0% of the filtered corpus.", size=8.2, color=MUTED, italic=True, after=0)
+    else:
+        paragraph(doc, "The planned descriptive polarity check uses a fixed social-media RoBERTa classifier rather than a lexicon method. Its full-corpus run and quality checks are still incomplete, so no sentiment result or graphic is included in this brief.", size=9.1, after=0)
+    doc.add_page_break()
 
     heading(doc, "Analytic approach and scope")
     callout_pair(doc, "Primary analysis", "Sentence-transformer embeddings (all-MiniLM-L6-v2), UMAP, HDBSCAN, BERTopic topic representations, and a full-corpus model for longitudinal prevalence. Per-window fits serve as stability diagnostics.", "Coverage of estimates", "The model assigns 38.6% of posts to non-outlier clusters. The final theme map covers 18,506 posts: 19.0% of all filtered posts and 49.3% of assigned posts.")
     heading(doc, "Assignment coverage", 2)
     doc.add_picture(str(ROOT / "outputs" / "v2_clean_min25" / "figures" / "monthly_assignment_coverage.png"), width=Inches(5.8))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-    paragraph(doc, "Figure 4. Assignment coverage varied from 33.1% to 44.0% by month. Outliers are a coverage limitation, not a substantive category.", size=8.2, color=MUTED, italic=True)
+    paragraph(doc, "Figure 9. Assignment coverage varied from 33.1% to 44.0% by month. Outliers are a coverage limitation, not a substantive category.", size=8.2, color=MUTED, italic=True)
     doc.add_page_break()
     heading(doc, "Robustness checks", 2)
     robustness_table(doc)
     paragraph(doc, "A larger all-mpnet-base-v2 encoder check was attempted but did not complete within the available CPU bound, so it is deferred and not treated as evidence.", size=8.5, color=MUTED, italic=True)
 
     heading(doc, "Interpreting the results", 2)
-    callout_pair(doc, "Observed patterns", "Within the mapped themes, health, safety, and attendance discussion declined over the four windows, while scheduling, hours, and time-off discussion increased. Compensation, career precarity, and recruitment remained visible throughout.", "What the results support", "These patterns describe changes in the composition of management-related public discussion. They identify domains for follow-up with representative employee data; they do not establish employee sentiment, turnover drivers, or policy effects.")
+    callout_pair(doc, "Observed patterns", "Within the mapped themes, health, safety, and attendance discussion declined over the four windows, while scheduling, hours, and time-off discussion increased. Compensation, career precarity, and recruitment remained visible throughout.", "What the results support", "The topic patterns describe changes in the composition of management-related public discussion and identify domains for follow-up with representative employee data. They do not establish employee sentiment, turnover drivers, or policy effects.")
 
     heading(doc, "Remaining work")
-    callout_pair(doc, "Available for drafting", "Results, figures, a theme codebook, coverage diagnostics, seed stability, text-mode sensitivity, and a defined interpretive scope are ready for the manuscript.", "Out-of-scope extensions", "A broader cluster review, an independent encoder check when compute permits, or a future sentiment study with a validated human reference set can be considered separately. None are required for this paper.")
+    callout_pair(doc, "Available for drafting", "Results, figures, a theme codebook, coverage diagnostics, seed stability, text-mode sensitivity, whole-corpus polarity estimates, and a defined interpretive scope are ready for the manuscript.", "Future validation", "A future target-specific sentiment study with a validated human reference set and an independent human-coding audit of a stratified topic subsample would test construct validity beyond the current exploratory evidence.")
     heading(doc, "Manuscript revision status", 2)
-    callout_pair(doc, "Sections revised", "The revised manuscript includes the title and abstract; current-study framing and research question; Methods, Results, Discussion, implications, limitations; figures; and primary BERTopic references.", "Before circulation", "Correct the denominator language, add the archive-source statement and sampling-frame framing note, and harmonize retained Background language with the paper's exploratory, descriptive scope. Historical theory and prior turnover findings should remain context, not claims tested by this study.")
+    callout_pair(doc, "Sections revised", "The revised manuscript includes the title and abstract; current-study framing and research question; Methods, Results, Discussion, implications, limitations; figures; primary BERTopic references; and the collection-to-filtering count of 577,190 retrieved archive records followed by 97,254 analyzed posts.", "Before circulation", "Add the completed polarity method and its bounded exploratory results to the manuscript, then harmonize retained Background language with the paper's descriptive scope. Historical theory and prior turnover findings should remain context, not claims tested by this study.")
     heading(doc, "Sampling-frame framing", 2)
     callout_pair(doc, "Intended analytic focus", "The management-term filter intentionally concentrates a problem-oriented, likely negatively skewed subset of r/antiwork discussion. The purpose was to surface recurring management concerns that may warrant follow-up.", "Boundary for the manuscript", "Do not present the results as average employee sentiment or a standalone priority ranking. Frame the themes as candidate areas to examine alongside representative evidence and organizational context.")
     heading(doc, "Materials for drafting", 2)
-    paragraph(doc, "Draft in this order: method and sampling frame; coverage and descriptive results; limitations; then an exploratory discussion. Use the documented theme map and avoid causal, full-conversation, or sentiment claims.", size=9.4, after=4)
+    paragraph(doc, "Draft in this order: collection and sampling frame; coverage, theme-prevalence, and model-based polarity results; limitations; then an exploratory discussion. Use the documented theme map and avoid causal, full-conversation, or human-validated sentiment claims.", size=9.4, after=4)
     p = paragraph(doc, "Reproducible code and shareable evidence: ", size=9.4, after=4)
     hyperlink(p, REPO_URL, REPO_URL)
     paragraph(doc, "Method records: planning/SCRAPING.md, planning/PREPROCESSING.md, planning/WRITING_HANDOFF.md, planning/ROBUSTNESS.md, and planning/CANDIDATE_THEME_CODEBOOK.csv.", size=8.4, color=MUTED, after=3)
-    paragraph(doc, "Current status: the analysis outputs are complete. The manuscript needs a focused wording pass before circulation as a descriptive, exploratory topic-prevalence study.", size=9.4, color=NAVY, bold=True)
+    paragraph(doc, "Current status: the topic-modeling and full-corpus polarity analyses are complete. The manuscript is revised as a descriptive, exploratory topic-prevalence study and needs the completed polarity method and results incorporated before circulation.", size=9.4, color=NAVY, bold=True)
 
     heading(doc, "Appendix: Reviewed cluster map")
-    paragraph(doc, "The table below makes the review trail visible. It lists all 30 largest clusters examined for the candidate-theme map, their representative terms, the assigned candidate theme and subtheme, and the inclusion decision.", size=9.4, after=6)
+    paragraph(doc, "The table below makes the review trail visible. It lists all 30 largest clusters examined for the candidate-theme map, their full-corpus size (n), representative terms, assigned candidate theme and subtheme, and inclusion decision.", size=9.4, after=6)
     reviewed_clusters = load_reviewed_clusters()
     for page, start in enumerate(range(0, len(reviewed_clusters), 15), start=1):
         if page > 1:

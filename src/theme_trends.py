@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import textwrap
 from pathlib import Path
 
 import matplotlib
@@ -18,6 +19,10 @@ matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
+
+
+GREAT_RESIGNATION_START = pd.Timestamp("2021-03-01")
+GREAT_RESIGNATION_END = pd.Timestamp("2022-03-01")
 
 
 def _load(out_dir: Path, codebook_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -87,14 +92,17 @@ def _plot_monthly(monthly: pd.DataFrame, path: Path) -> None:
     fig, axes = plt.subplots(nrows, ncols, figsize=(14, 3.2 * nrows), sharex=True, sharey=True)
     axes = axes.flatten()
     fig.suptitle("Provisional theme prevalence from reviewed v2 clusters", x=0.06, y=0.99, ha="left", fontsize=15, fontweight="bold")
-    fig.text(0.06, 0.955, "Three-month rolling share of all filtered posts. The codebook covers selected high-confidence clusters, not the full corpus.", ha="left", color="#475569")
+    fig.text(0.06, 0.955, "Three-month rolling share of all filtered posts. Shading marks the Y1 Great Resignation window (Mar 2021-Feb 2022); dashed line marks March 2022.", ha="left", color="#475569")
     maximum = float((monthly["three_month_share_all_posts"] * 100).max())
     y_limit = max(1.0, (int(maximum / 1.0) + 2) * 1.0)
     for axis, theme in zip(axes, theme_order):
         series = monthly[monthly["candidate_theme"].eq(theme)]
+        axis.axvspan(GREAT_RESIGNATION_START, GREAT_RESIGNATION_END, color="#E5C07B", alpha=0.24, zorder=0)
+        axis.axvline(GREAT_RESIGNATION_END, color="#9A6A24", linestyle="--", linewidth=0.9, alpha=0.9, zorder=2)
         axis.plot(series["month"], series["three_month_share_all_posts"] * 100, color="#1F4E79", linewidth=2)
         axis.fill_between(series["month"], 0, series["three_month_share_all_posts"] * 100, color="#D9E6F2", alpha=0.75)
-        axis.set_title(theme, loc="left", fontsize=10, fontweight="bold")
+        total_n = int(series["post_count"].sum())
+        axis.set_title(f"{theme}\n(n={total_n:,} across all windows)", loc="left", fontsize=9.2, fontweight="bold")
         axis.set_ylim(0, y_limit)
         axis.yaxis.set_major_formatter("{x:.0f}%")
         axis.grid(axis="y", alpha=0.2)
@@ -105,7 +113,7 @@ def _plot_monthly(monthly: pd.DataFrame, path: Path) -> None:
         if axis.get_visible():
             axis.xaxis.set_major_locator(mdates.MonthLocator(interval=12))
             axis.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    fig.text(0.06, 0.01, "Denominator: all filtered posts per month. Exploratory 27-cluster codebook covers 19.0% of the corpus.", ha="left", color="#475569", fontsize=9)
+    fig.text(0.06, 0.01, "Percentages divide theme posts by all filtered posts per month; title n values are theme counts across all windows. Exploratory 27-cluster codebook covers 19.0% of the corpus.", ha="left", color="#475569", fontsize=8.5)
     fig.tight_layout(rect=[0, 0.035, 1, 0.90])
     fig.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(fig)
@@ -119,10 +127,12 @@ def _plot_windows(window: pd.DataFrame, path: Path) -> None:
     width = 0.18
     positions = range(len(themes))
     for i, (label, color) in enumerate(zip(order, palette)):
-        values = window[window["rolling_window"].eq(label)].set_index("candidate_theme").reindex(themes)["share_all_posts"] * 100
-        ax.bar([position + (i - 1.5) * width for position in positions], values, width=width, label=label.replace("_", " "), color=color)
+        subset = window[window["rolling_window"].eq(label)].set_index("candidate_theme").reindex(themes)
+        values = subset["share_all_posts"] * 100
+        total_n = int(subset["total_posts"].iloc[0])
+        ax.bar([position + (i - 1.5) * width for position in positions], values, width=width, label=f"{label.replace('_', ' ')} (n={total_n:,})", color=color)
     fig.suptitle("Provisional theme prevalence by rolling window", x=0.06, y=0.99, ha="left", fontsize=15, fontweight="bold")
-    fig.text(0.06, 0.945, "Share of all filtered posts. Exploratory 27-cluster map excludes generic, deleted, and community-meta clusters.", ha="left", color="#475569")
+    fig.text(0.06, 0.945, "Share of all filtered posts; rolling-window denominators are shown in the legend. Exploratory 27-cluster map excludes generic, deleted, and community-meta clusters.", ha="left", color="#475569")
     ax.set_ylabel("Share of filtered posts")
     ax.yaxis.set_major_formatter("{x:.0f}%")
     ax.set_xticks(list(positions), themes, rotation=25, ha="right")
@@ -130,6 +140,78 @@ def _plot_windows(window: pd.DataFrame, path: Path) -> None:
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False, ncol=2, loc="upper right")
     fig.tight_layout(rect=[0, 0, 1, 0.90])
+    fig.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_y1_y4_comparison(window: pd.DataFrame, path: Path) -> None:
+    y1 = window[window["rolling_window"].eq("Y1_2021-22")].set_index("candidate_theme")
+    y4 = window[window["rolling_window"].eq("Y4_2024-25")].set_index("candidate_theme")
+    comparison = y1[["share_all_posts", "post_count", "total_posts"]].join(
+        y4[["share_all_posts", "post_count", "total_posts"]], lsuffix="_y1", rsuffix="_y4"
+    )
+    comparison["difference_pp"] = (comparison["share_all_posts_y4"] - comparison["share_all_posts_y1"]) * 100
+    comparison = comparison.sort_values("difference_pp")
+    fig, ax = plt.subplots(figsize=(10.8, 6.2))
+    y_positions = range(len(comparison))
+    for y, (_, row) in zip(y_positions, comparison.iterrows()):
+        ax.plot([row["share_all_posts_y1"] * 100, row["share_all_posts_y4"] * 100], [y, y], color="#9AA9B5", linewidth=1.5, zorder=1)
+    ax.scatter(comparison["share_all_posts_y1"] * 100, y_positions, color="#1F4E79", s=46, label=f"Y1 Great Resignation period (n={int(comparison['total_posts_y1'].iloc[0]):,})", zorder=2)
+    ax.scatter(comparison["share_all_posts_y4"] * 100, y_positions, color="#B35A27", s=46, label=f"Y4 most recent period (n={int(comparison['total_posts_y4'].iloc[0]):,})", zorder=2)
+    ax.set_yticks(list(y_positions), comparison.index)
+    ax.xaxis.set_major_formatter("{x:.0f}%")
+    ax.set_xlabel("Share of all filtered posts")
+    ax.grid(axis="x", alpha=0.2)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    ax.tick_params(axis="y", length=0)
+    fig.suptitle("Candidate-theme prevalence in Y1 and Y4", x=0.08, y=0.98, ha="left", fontsize=15, fontweight="bold")
+    fig.text(0.08, 0.935, "Exploratory comparison of the user-defined Great Resignation period (Mar 2021-Feb 2022) with Mar 2024-Feb 2025. Lines show percentage-point change, not causal effects.", ha="left", color="#475569", fontsize=9)
+    for y, (_, row) in zip(y_positions, comparison.iterrows()):
+        ax.text(max(row["share_all_posts_y1"], row["share_all_posts_y4"]) * 100 + 0.08, y, f"{row['difference_pp']:+.2f} pp", va="center", fontsize=8.4, color="#475569")
+    fig.legend(frameon=False, loc="upper right", bbox_to_anchor=(0.96, 0.89), ncol=2, fontsize=8.8)
+    fig.tight_layout(rect=[0, 0, 1, 0.79])
+    fig.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _build_top_cluster_monthly(out_dir: Path, codebook_path: Path, top_n: int = 10) -> pd.DataFrame:
+    docs, codebook = _load(out_dir, codebook_path)
+    included = codebook[codebook["decision"].eq("include")].copy()
+    topic_sizes = docs[docs["topic"].isin(included["topic"])].groupby("topic", as_index=False).size().rename(columns={"size": "cluster_n"})
+    selected = included.merge(topic_sizes, on="topic", how="inner").nlargest(top_n, "cluster_n").copy()
+    selected["cluster_label"] = selected["candidate_subtheme"] + "\n" + selected["candidate_theme"]
+    monthly_totals = docs.groupby("month", as_index=False).size().rename(columns={"size": "total_posts"})
+    counts = docs[docs["topic"].isin(selected["topic"])].groupby(["month", "topic"], as_index=False).size().rename(columns={"size": "post_count"})
+    grid = monthly_totals.merge(selected[["topic", "cluster_label", "cluster_n"]], how="cross")
+    result = grid.merge(counts, on=["month", "topic"], how="left")
+    result["post_count"] = result["post_count"].fillna(0).astype(int)
+    result["share_all_posts"] = result["post_count"] / result["total_posts"]
+    return result.sort_values(["cluster_n", "topic", "month"], ascending=[False, True, True])
+
+
+def _plot_top_cluster_monthly(monthly: pd.DataFrame, path: Path) -> None:
+    selected = monthly[["topic", "cluster_label", "cluster_n"]].drop_duplicates().sort_values("cluster_n", ascending=False)
+    fig, axes = plt.subplots(2, 5, figsize=(15, 6.9), sharex=True, sharey=False)
+    fig.suptitle("Month-by-month prevalence of the ten largest reviewed subthemes", x=0.06, y=0.99, ha="left", fontsize=15, fontweight="bold")
+    fig.text(0.06, 0.953, "Exact monthly shares of all filtered posts. Shading marks the Y1 Great Resignation window (Mar 2021-Feb 2022); dashed line marks March 2022.", ha="left", color="#475569", fontsize=9)
+    for axis, (_, row) in zip(axes.flat, selected.iterrows()):
+        series = monthly[monthly["topic"].eq(row["topic"])].sort_values("month")
+        axis.axvspan(GREAT_RESIGNATION_START, GREAT_RESIGNATION_END, color="#E5C07B", alpha=0.24, zorder=0)
+        axis.axvline(GREAT_RESIGNATION_END, color="#9A6A24", linestyle="--", linewidth=0.8, alpha=0.9, zorder=2)
+        axis.plot(series["month"], series["share_all_posts"] * 100, color="#1F4E79", linewidth=1.8)
+        axis.scatter(series["month"], series["share_all_posts"] * 100, color="#1F4E79", s=8, zorder=3)
+        subtheme, theme = row["cluster_label"].split("\n", maxsplit=1)
+        label = f"{textwrap.fill(subtheme, width=27)}\n{textwrap.fill(theme, width=27)}\n(n={int(row['cluster_n']):,})"
+        axis.set_title(label, loc="left", fontsize=7.3, fontweight="bold", pad=7)
+        axis.yaxis.set_major_formatter("{x:.0f}%")
+        axis.grid(axis="y", alpha=0.2)
+        axis.spines[["top", "right"]].set_visible(False)
+        axis.tick_params(labelsize=7.5)
+    for axis in axes[-1, :]:
+        axis.xaxis.set_major_locator(mdates.YearLocator())
+        axis.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    fig.text(0.06, 0.012, "Subthemes are individual included BERTopic clusters nested under the nine reviewed themes. Percentages use all filtered posts in each month as the denominator.", ha="left", color="#475569", fontsize=8.5)
+    fig.tight_layout(rect=[0, 0.035, 1, 0.90])
     fig.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(fig)
 
@@ -145,16 +227,23 @@ def main() -> None:
     analysis_dir.mkdir(parents=True, exist_ok=True)
     figure_dir.mkdir(parents=True, exist_ok=True)
     monthly, summary, window = build_theme_outputs(out_dir, Path(args.codebook))
+    top_cluster_monthly = _build_top_cluster_monthly(out_dir, Path(args.codebook))
     monthly.to_csv(analysis_dir / "candidate_theme_monthly_prevalence.csv", index=False)
     summary.to_csv(analysis_dir / "candidate_theme_summary.csv", index=False)
     window.to_csv(analysis_dir / "candidate_theme_window_prevalence.csv", index=False)
+    top_cluster_monthly.to_csv(analysis_dir / "top10_reviewed_subtheme_monthly_prevalence.csv", index=False)
     _plot_monthly(monthly, figure_dir / "candidate_theme_monthly_prevalence.png")
     _plot_windows(window, figure_dir / "candidate_theme_rolling_window_prevalence.png")
+    _plot_y1_y4_comparison(window, figure_dir / "candidate_theme_y1_y4_comparison.png")
+    _plot_top_cluster_monthly(top_cluster_monthly, figure_dir / "top10_reviewed_subtheme_monthly_prevalence.png")
     print(f"wrote {analysis_dir / 'candidate_theme_monthly_prevalence.csv'}")
     print(f"wrote {analysis_dir / 'candidate_theme_summary.csv'}")
     print(f"wrote {analysis_dir / 'candidate_theme_window_prevalence.csv'}")
+    print(f"wrote {analysis_dir / 'top10_reviewed_subtheme_monthly_prevalence.csv'}")
     print(f"wrote {figure_dir / 'candidate_theme_monthly_prevalence.png'}")
     print(f"wrote {figure_dir / 'candidate_theme_rolling_window_prevalence.png'}")
+    print(f"wrote {figure_dir / 'candidate_theme_y1_y4_comparison.png'}")
+    print(f"wrote {figure_dir / 'top10_reviewed_subtheme_monthly_prevalence.png'}")
 
 
 if __name__ == "__main__":
